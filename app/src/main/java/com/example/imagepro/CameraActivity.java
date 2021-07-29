@@ -87,6 +87,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         Log.i(TAG,"Instantiated new "+this.getClass());
     }
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
