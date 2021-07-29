@@ -65,6 +65,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     // 후면 정상
 
 
+
     private BaseLoaderCallback mLoaderCallback =new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
