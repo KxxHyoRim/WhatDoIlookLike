@@ -7,8 +7,11 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
@@ -16,6 +19,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TableRow;
+import android.widget.TextView;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
@@ -24,10 +28,16 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.tensorflow.lite.Interpreter;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -42,6 +52,9 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     private ImageView take_picture_button;
     private int take_image = 0;
 
+    Interpreter interpreter;
+    TextView textView;
+    Handler handler1, handler2, handler3;
 
     /** mCameraId = 1로 시작
      * 문제 1 : mCameraId를 1로 지정했음에도 불구하고 후면으로 시작
@@ -99,6 +112,9 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
         setContentView(R.layout.activity_camera);
 
+        interpreter = getTfliteInterpreter("converted_model.tflite");
+        textView = (TextView) findViewById(R.id.textView);
+
         mOpenCvCameraView=(CameraBridgeViewBase) findViewById(R.id.frame_Surface);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
@@ -124,6 +140,24 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
                 }
             }
         });
+
+        handler1 = new Handler(){
+            public void handleMessage(Message msg){
+                textView.setText("result : 고양이");
+            }
+        };
+
+        handler2 = new Handler(){
+            public void handleMessage(Message msg){
+                textView.setText("result : 강아지");
+            }
+        };
+
+        handler3 = new Handler(){
+            public void handleMessage(Message msg){
+                textView.setText("result : 여우");
+            }
+        };
     }
 
     private void swapCamera() {
@@ -233,10 +267,68 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
             Log.d(TAG, fileName);
 
             Imgcodecs.imwrite(fileName, save_mat);
+
+            float result = doInference(save_mat);
+
+            if(result == 0.0){
+                Message msg = handler1.obtainMessage();
+                handler1.sendMessage(msg);
+            }
+            else if(result == 1.0){
+                Message msg = handler2.obtainMessage();
+                handler2.sendMessage(msg);
+            }
+            else if(result == 2.0){
+                Message msg = handler3.obtainMessage();
+                handler3.sendMessage(msg);
+            }
+
             take_image = 0;
         }
 
         return take_image;
     }
 
+    private Interpreter getTfliteInterpreter(String modelPath) {
+        try {
+            return new Interpreter(loadModelFile(this, modelPath));
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private MappedByteBuffer loadModelFile(Activity activity, String modelPath) throws IOException {
+        AssetFileDescriptor fileDescriptor = activity.getAssets().openFd(modelPath);
+        FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+        FileChannel fileChannel = inputStream.getChannel();
+        long startOffset = fileDescriptor.getStartOffset();
+        long declaredLength = fileDescriptor.getDeclaredLength();
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+    }
+
+    private float doInference(Mat image){
+        float[][][][] input = new float[1][50][50][1];
+        float[][] output = new float[1][3];
+
+        Imgproc.resize(image, image, new Size(50, 50));
+
+        for(int i=0;i<image.rows();i++)
+            for(int j=0;j<image.cols();j++) {
+                double pixel = image.get(i,j)[0] * 0.299 + image.get(i,j)[1] * 0.587 + image.get(i,j)[2] * 0.114;
+                input[0][i][j][0] = (float) (pixel / 255.0);
+            }
+
+        interpreter.run(input, output);
+        int out = 0;
+        float out2 = 0;
+        for(int i=0;i<3;i++) {
+            if (output[0][i] > out2) {
+                out2 = output[0][i];
+                out = i;
+            }
+        }
+        return out;
+    }
 }
