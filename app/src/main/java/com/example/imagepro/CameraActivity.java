@@ -208,12 +208,12 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     public void onCameraViewStarted(int width ,int height){
         mRgba=new Mat(height,width, CvType.CV_8UC4);
         mGray =new Mat(height,width,CvType.CV_8UC1);
-        Log.i(TAG,"onCameraViewStarted()    "  +  "mCameraId : " + mCameraId);
+//        Log.i(TAG,"onCameraViewStarted()    "  +  "mCameraId : " + mCameraId);
 
 
     }
     public void onCameraViewStopped() {
-        Log.i(TAG,"onCameraViewStopped()    "  +  "mCameraId : " + mCameraId);
+//        Log.i(TAG,"onCameraViewStopped()    "  +  "mCameraId : " + mCameraId);
         mRgba.release();
     }
 
@@ -256,11 +256,9 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
             File folder = new File(Environment.getExternalStorageDirectory().getPath() + "/WhatDoIlookLike" );
             Log.d(TAG, String.valueOf(folder));
 
-//            boolean success = true;
             if (!folder.exists()){
                 Log.d(TAG, "make Folder");
                 folder.mkdirs();
-//                success = folder.mkdirs();
             }
 
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
@@ -302,15 +300,19 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     }
 
     private MappedByteBuffer loadModelFile(Activity activity, String modelPath) throws IOException {
+
         AssetFileDescriptor fileDescriptor = activity.getAssets().openFd(modelPath);
         FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
         FileChannel fileChannel = inputStream.getChannel();
         long startOffset = fileDescriptor.getStartOffset();
         long declaredLength = fileDescriptor.getDeclaredLength();
+
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+
     }
 
     private float doInference(Mat image){
+
         float[][][][] input = new float[1][50][50][1];
         float[][] output = new float[1][3];
 
@@ -323,6 +325,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
             }
 
         interpreter.run(input, output);
+
         int out = 0;
         float out2 = 0;
         for(int i=0;i<3;i++) {
