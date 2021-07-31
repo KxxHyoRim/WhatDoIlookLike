@@ -1,5 +1,6 @@
 package com.example.imagepro;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -14,6 +15,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
@@ -56,8 +58,14 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     private int take_image = 0;
 
     Interpreter interpreter;
-    TextView textView;
-    Handler handler1, handler2, handler3, handler4;
+    static TextView textView;
+    MsgHandler handler, handler1, handler2, handler3, handler4;
+    private final int CAT = 0;
+    private final int DOG = 1;
+    private final int FOX = 2;
+    private final int ETC = 3;  // 결과 없음
+    static private final String[] animal = {"고양이", "강아지", "여우", "결과없음"};
+
 
     /** mCameraId = 1로 시작
      * 문제 1 : mCameraId를 1로 지정했음에도 불구하고 후면으로 시작
@@ -125,6 +133,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         mOpenCvCameraView.setCvCameraViewListener(this);
         Log.i(TAG,"mOpenCvCameraView :: " +  mOpenCvCameraView.getWidth() + ", "+ mOpenCvCameraView.getHeight());
 
+        handler = new MsgHandler();
 
 
         flip_camera = findViewById(R.id.flip_camera);
@@ -142,7 +151,10 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
             @Override
             public void onClick(View view) {
                 Log.d(TAG, "pressed");
-                Toast.makeText(getApplicationContext(), "Shot", Toast.LENGTH_SHORT).show();
+
+                Toast toast =  Toast.makeText(getApplicationContext(), "Shot", Toast.LENGTH_SHORT);
+                toast.setGravity(Gravity.TOP, 200, 200);
+                toast.show();
 
                 if (take_image == 0){
                     take_image = 1;
@@ -152,58 +164,22 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
             }
         });
 
-        handler1 = new Handler(){
-            public void handleMessage(Message msg){
-                textView.setText("result : 고양이");
-            }
-        };
+    }
 
-        handler2 = new Handler(){
-            public void handleMessage(Message msg){
-                textView.setText("result : 강아지");
-            }
-        };
-
-        handler3 = new Handler(){
-            public void handleMessage(Message msg){
-                textView.setText("result : 여우");
-            }
-        };
-
-        handler4 = new Handler(){
-            public void handleMessage(Message msg){
-                textView.setText("result : 결과 없음");
-            }
-        };
+    private static class MsgHandler extends Handler {
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            textView.setText("result : " + animal[msg.what]);
+        }
     }
 
     private void swapCamera() {
         // first we will change mCameraId
         mCameraId = mCameraId^1;    // not operation
-
-
-//        if (mCameraId == 0){
-//            Toast.makeText(this.getApplicationContext(), "back", Toast.LENGTH_SHORT );
-//        }
-//
-
-
-
         // disable current camera view
         mOpenCvCameraView.disableView();
         // setCameraIndex
         mOpenCvCameraView.setCameraIndex(mCameraId);
-
-//        if (mCameraId == 1){
-//            Log.e("SWAPCamera", String.valueOf(mCameraId));
-//            mOpenCvCameraView.setScaleX(-1);
-//            Matrix matrix = new Matrix();
-//            matrix.setScale(-1, 1);
-//
-//            Toast.makeText(this.getApplicationContext(), "front", Toast.LENGTH_SHORT );
-//        }
-
-
         // enable view
         mOpenCvCameraView.enableView();
 
@@ -253,29 +229,25 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     }
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame){
+
+        //        Log.i(TAG,"onCameraFrame()         " +  "mCameraId : " + mCameraId);
+
         mRgba=inputFrame.rgba();
         mGray=inputFrame.gray();
 
-        // when we change camera from back to front there is a rotation problem
         // front camera is rotated by 180
-        // so when mCameraId is 1(front), rotate camera frame with 180 degree
-
-//        Log.i(TAG,"onCameraFrame()         " +  "mCameraId : " + mCameraId);
-
-
-
         if (mCameraId == 1){    // front camera
+            // rotate camera frame with 180 degree
             Core.flip(mRgba, mRgba, -1);
             Core.flip(mGray, mGray, -1);
+            // flipCode == 0 좌우반전
             Core.flip(mRgba, mRgba, 0);
             Core.flip(mGray, mGray, 0);
-
         }
 
         take_image = take_picture_function_rgb(take_image, mRgba);
 
         return mRgba;
-
     }
 
     private int take_picture_function_rgb(int take_image, Mat mRgba) {
@@ -288,50 +260,41 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         // convert image from RGBA to BGRA
         Imgproc.cvtColor(save_mat, save_mat, Imgproc.COLOR_RGBA2BGRA);
 
-        /** 촬영 버튼 눌렀을 때 이미지 저장*/
         if (take_image == 1){
 
-
+            /** 촬영 버튼 눌렀을 때 이미지 저장*
+             *  개선 : 갤럭시의 '내파일'앱에서는 사진을 확인할 수 있으나,
+             *  갤러리에서는 확인이 불가능함
+             *  경로 수정으로 해결(미디어 파일 형식으로 저장)
+             */
 
 
             // create new folder
             File folder = new File(Environment.getExternalStorageDirectory().getPath() + "/WhatDoIlookLike" );
-//            Log.d(TAG, String.valueOf(folder));
 
             if (!folder.exists()){
-//                Log.d(TAG, "make Folder");
+                Log.e(TAG, "Create folder");
                 folder.mkdirs();
             }
 
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
             String currentDateAndTime = sdf.format(new Date());
             String fileName = Environment.getExternalStorageDirectory().getPath() + "/WhatDoIlookLike/" + currentDateAndTime + ".jpg";
-//            Log.d(TAG, fileName);
+            Log.e(TAG, "Create folder Save Image");
 
             Imgcodecs.imwrite(fileName, save_mat);
-
 
             take_image = 0;
         }
 
-        float result = doInference(save_mat);
+        int result = doInference(save_mat);
 
-        if(result == 0.0){
-            Message msg = handler1.obtainMessage();
-            handler1.sendMessage(msg);
-        }
-        else if(result == 1.0){
-            Message msg = handler2.obtainMessage();
-            handler2.sendMessage(msg);
-        }
-        else if(result == 2.0){
-            Message msg = handler3.obtainMessage();
-            handler3.sendMessage(msg);
-        } else if (result == -1.0){
-            Message msg = handler4.obtainMessage();
-            handler4.sendMessage(msg);
-        }
-
+        Message msg = handler.obtainMessage();
+        if(result == 0.0){  msg.what = CAT ; }
+        else if(result == 1.0){ msg.what = DOG ;}
+        else if(result == 2.0){ msg.what = FOX ;}
+        else if (result == -1.0){ msg.what = ETC ;}
+        handler.sendMessage(msg);
 
 
         return take_image;
@@ -359,7 +322,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
     }
 
-    private float doInference(Mat image){
+    private int doInference(Mat image){
 
         float[][][][] input = new float[1][50][50][1];
         float[][] output = new float[1][3];
