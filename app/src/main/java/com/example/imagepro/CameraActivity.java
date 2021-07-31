@@ -225,7 +225,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         // front camera is rotated by 180
         // so when mCameraId is 1(front), rotate camera frame with 180 degree
 
-        Log.i(TAG,"onCameraFrame()         " +  "mCameraId : " + mCameraId);
+//        Log.i(TAG,"onCameraFrame()         " +  "mCameraId : " + mCameraId);
 
 
 
@@ -241,49 +241,51 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     }
 
     private int take_picture_function_rgb(int take_image, Mat mRgba) {
+
+        Mat save_mat = new Mat();
+
+        // rotate img 90 degree
+        Core.flip(mRgba.t(), save_mat, 1);
+
+        // convert image from RGBA to BGRA
+        Imgproc.cvtColor(save_mat, save_mat, Imgproc.COLOR_RGBA2BGRA);
+
+        /** 촬영 버튼 눌렀을 때 이미지 저장*/
         if (take_image == 1){
-            // add permission on Manifest
-
-            Mat save_mat = new Mat();
-
-            // rotate img 90 degree
-            Core.flip(mRgba.t(), save_mat, 1);
-
-            // convert image from RGBA to BGRA
-            Imgproc.cvtColor(save_mat, save_mat, Imgproc.COLOR_RGBA2BGRA);
 
             // create new folder
             File folder = new File(Environment.getExternalStorageDirectory().getPath() + "/WhatDoIlookLike" );
-            Log.d(TAG, String.valueOf(folder));
+//            Log.d(TAG, String.valueOf(folder));
 
             if (!folder.exists()){
-                Log.d(TAG, "make Folder");
+//                Log.d(TAG, "make Folder");
                 folder.mkdirs();
             }
 
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
             String currentDateAndTime = sdf.format(new Date());
             String fileName = Environment.getExternalStorageDirectory().getPath() + "/WhatDoIlookLike/" + currentDateAndTime + ".jpg";
-            Log.d(TAG, fileName);
+//            Log.d(TAG, fileName);
 
             Imgcodecs.imwrite(fileName, save_mat);
 
-            float result = doInference(save_mat);
-
-            if(result == 0.0){
-                Message msg = handler1.obtainMessage();
-                handler1.sendMessage(msg);
-            }
-            else if(result == 1.0){
-                Message msg = handler2.obtainMessage();
-                handler2.sendMessage(msg);
-            }
-            else if(result == 2.0){
-                Message msg = handler3.obtainMessage();
-                handler3.sendMessage(msg);
-            }
 
             take_image = 0;
+        }
+
+        float result = doInference(save_mat);
+
+        if(result == 0.0){
+            Message msg = handler1.obtainMessage();
+            handler1.sendMessage(msg);
+        }
+        else if(result == 1.0){
+            Message msg = handler2.obtainMessage();
+            handler2.sendMessage(msg);
+        }
+        else if(result == 2.0){
+            Message msg = handler3.obtainMessage();
+            handler3.sendMessage(msg);
         }
 
         return take_image;
