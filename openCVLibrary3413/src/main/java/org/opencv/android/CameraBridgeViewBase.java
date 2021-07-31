@@ -414,15 +414,30 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
             float mScale1=0;
             float mScale2=0;
             if(canvas.getHeight()>canvas.getWidth()){
+
                 canvas.rotate(90f,canvas.getWidth()/2,canvas.getHeight()/2);
-                // for my Phone my scale values are
-                mScale1=1.8f;
-                mScale2=1.5f;
+
+                // mCacheBitmap.getWidth() will be our frame height
+                mScale1 = 1.0f;
+                mScale2 = 1.0f;
+//                mScale1 = ((float)canvas.getHeight())/((float)(mCacheBitmap.getWidth()));
+//                mScale2 = ((float)canvas.getWidth())/((float)(mCacheBitmap.getHeight()));
+                Log.e(TAG, "Bitmap type: " + mCacheBitmap.getWidth() + "*" + mCacheBitmap.getHeight());
+
+//                유투버 폰 기준
+//                mScale1=1.8f;
+//                mScale2=1.5f;
 
             }
             else{
-                mScale1=1.4f;
-                mScale2=1.3f;
+                // for landscape mode
+                // because we are not rotating camera
+                // frame by 90 degree in landscape model
+
+                mScale1 = (float)canvas.getWidth()/(float)(mCacheBitmap.getWidth());
+                mScale2 = (float)canvas.getHeight()/(float)(mCacheBitmap.getHeight());
+//                mScale1=1.4f;
+//                mScale2=1.3f;
             }
 
 

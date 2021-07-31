@@ -8,6 +8,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Matrix;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -20,6 +21,7 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TableRow;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
@@ -38,6 +40,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -54,7 +57,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
     Interpreter interpreter;
     TextView textView;
-    Handler handler1, handler2, handler3;
+    Handler handler1, handler2, handler3, handler4;
 
     /** mCameraId = 1로 시작
      * 문제 1 : mCameraId를 1로 지정했음에도 불구하고 후면으로 시작
@@ -120,6 +123,10 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         mOpenCvCameraView=(CameraBridgeViewBase) findViewById(R.id.frame_Surface);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
+        Log.i(TAG,"mOpenCvCameraView :: " +  mOpenCvCameraView.getWidth() + ", "+ mOpenCvCameraView.getHeight());
+
+
+
         flip_camera = findViewById(R.id.flip_camera);
         // when flip camera button is clicked
         flip_camera.setOnClickListener(new View.OnClickListener() {
@@ -135,6 +142,8 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
             @Override
             public void onClick(View view) {
                 Log.d(TAG, "pressed");
+                Toast.makeText(getApplicationContext(), "Shot", Toast.LENGTH_SHORT).show();
+
                 if (take_image == 0){
                     take_image = 1;
                 } else {
@@ -160,15 +169,41 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
                 textView.setText("result : 여우");
             }
         };
+
+        handler4 = new Handler(){
+            public void handleMessage(Message msg){
+                textView.setText("result : 결과 없음");
+            }
+        };
     }
 
     private void swapCamera() {
         // first we will change mCameraId
         mCameraId = mCameraId^1;    // not operation
+
+
+//        if (mCameraId == 0){
+//            Toast.makeText(this.getApplicationContext(), "back", Toast.LENGTH_SHORT );
+//        }
+//
+
+
+
         // disable current camera view
         mOpenCvCameraView.disableView();
         // setCameraIndex
         mOpenCvCameraView.setCameraIndex(mCameraId);
+
+//        if (mCameraId == 1){
+//            Log.e("SWAPCamera", String.valueOf(mCameraId));
+//            mOpenCvCameraView.setScaleX(-1);
+//            Matrix matrix = new Matrix();
+//            matrix.setScale(-1, 1);
+//
+//            Toast.makeText(this.getApplicationContext(), "front", Toast.LENGTH_SHORT );
+//        }
+
+
         // enable view
         mOpenCvCameraView.enableView();
 
@@ -232,6 +267,9 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         if (mCameraId == 1){    // front camera
             Core.flip(mRgba, mRgba, -1);
             Core.flip(mGray, mGray, -1);
+            Core.flip(mRgba, mRgba, 0);
+            Core.flip(mGray, mGray, 0);
+
         }
 
         take_image = take_picture_function_rgb(take_image, mRgba);
@@ -252,6 +290,9 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
         /** 촬영 버튼 눌렀을 때 이미지 저장*/
         if (take_image == 1){
+
+
+
 
             // create new folder
             File folder = new File(Environment.getExternalStorageDirectory().getPath() + "/WhatDoIlookLike" );
@@ -286,7 +327,12 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         else if(result == 2.0){
             Message msg = handler3.obtainMessage();
             handler3.sendMessage(msg);
+        } else if (result == -1.0){
+            Message msg = handler4.obtainMessage();
+            handler4.sendMessage(msg);
         }
+
+
 
         return take_image;
     }
@@ -328,14 +374,21 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
         interpreter.run(input, output);
 
-        int out = 0;
-        float out2 = 0;
+        int out = 0;        // index
+        float out2 = 0;     // ratio
         for(int i=0;i<3;i++) {
             if (output[0][i] > out2) {
                 out2 = output[0][i];
                 out = i;
             }
         }
+
+        DecimalFormat df = new DecimalFormat("#.##");
+        Log.i(TAG, "output :: " + df.format(output[0][0]) + ", " + df.format(output[0][1]) + ", " +  df.format(output[0][2]) );
+
+        // category 비율이 40이하일 경우 표시안하기 위함
+        if (out2 < 0.6) { out = -1; }
+
         return out;
     }
 }
