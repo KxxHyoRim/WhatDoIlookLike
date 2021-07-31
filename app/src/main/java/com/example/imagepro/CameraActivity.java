@@ -53,13 +53,13 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     private Mat mGray;
     private CameraBridgeViewBase mOpenCvCameraView;
     private ImageView flip_camera;     // call for image view of flip button
-    private int mCameraId = 0;         // start with front camera // 0 : back, 1 : front
+    private int mCameraId = 1;         // start with front camera // 0 : back, 1 : front
     private ImageView take_picture_button;
     private int take_image = 0;
 
-    Interpreter interpreter;
+    Interpreter interpreter, face_detect_interpreter;
     static TextView textView;
-    MsgHandler handler, handler1, handler2, handler3, handler4;
+    MsgHandler handler;
     private final int CAT = 0;
     private final int DOG = 1;
     private final int FOX = 2;
@@ -67,14 +67,8 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     static private final String[] animal = {"고양이", "강아지", "여우", "결과없음"};
 
 
-    /** mCameraId = 1로 시작
-     * 문제 1 : mCameraId를 1로 지정했음에도 불구하고 후면으로 시작
-     * 문제 2 : 전면 카메라가 반대로 뜬다 */
-    // 후면 정상
-    // 후면 정상
-    // 전면 반대
-    // 후면 정상
-
+    /** 전면카메라로 시작
+     *  후면카메라로 시작하고 싶을 시 상단의 mCameraId = 0으로 설정하면됨 */
 
 
     private BaseLoaderCallback mLoaderCallback =new BaseLoaderCallback(this) {
@@ -84,6 +78,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
                 case LoaderCallbackInterface
                         .SUCCESS:{
                     Log.i(TAG,"OpenCv Is loaded");
+                    mOpenCvCameraView.setCameraIndex(mCameraId);
                     mOpenCvCameraView.enableView();
                 }
                 default:
@@ -107,7 +102,9 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         int MY_PERMISSIONS_REQUEST_CAMERA=0;
+
         // if camera permission is not given it will ask for it on device
+
         if (ContextCompat.checkSelfPermission(CameraActivity.this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_DENIED){
             ActivityCompat.requestPermissions(CameraActivity.this, new String[] {Manifest.permission.CAMERA}, MY_PERMISSIONS_REQUEST_CAMERA);
@@ -131,7 +128,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         mOpenCvCameraView=(CameraBridgeViewBase) findViewById(R.id.frame_Surface);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
-        Log.i(TAG,"mOpenCvCameraView :: " +  mOpenCvCameraView.getWidth() + ", "+ mOpenCvCameraView.getHeight());
+//        Log.i(TAG,"mOpenCvCameraView :: " +  mOpenCvCameraView.getWidth() + ", "+ mOpenCvCameraView.getHeight());
 
         handler = new MsgHandler();
 
@@ -219,7 +216,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     public void onCameraViewStarted(int width ,int height){
         mRgba=new Mat(height,width, CvType.CV_8UC4);
         mGray =new Mat(height,width,CvType.CV_8UC1);
-//        Log.i(TAG,"onCameraViewStarted()    "  +  "mCameraId : " + mCameraId);
+        Log.i(TAG,"onCameraViewStarted()    "  +  "mCameraId : " + mCameraId);
 
 
     }
@@ -230,7 +227,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame){
 
-        //        Log.i(TAG,"onCameraFrame()         " +  "mCameraId : " + mCameraId);
+                Log.i(TAG,"onCameraFrame()         " +  "mCameraId : " + mCameraId);
 
         mRgba=inputFrame.rgba();
         mGray=inputFrame.gray();
@@ -262,7 +259,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
 
         if (take_image == 1){
 
-            /** 촬영 버튼 눌렀을 때 이미지 저장*
+            /** (추후 수정) 촬영 버튼 눌렀을 때 이미지 저장*
              *  개선 : 갤럭시의 '내파일'앱에서는 사진을 확인할 수 있으나,
              *  갤러리에서는 확인이 불가능함
              *  경로 수정으로 해결(미디어 파일 형식으로 저장)
@@ -290,6 +287,11 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         int result = doInference(save_mat);
 
         Message msg = handler.obtainMessage();
+
+        /** Category 추가 방법
+         * 1. animal 이름의 배열 수정 : 결과 없음은 마지막 인덱스로 지정
+         * 2. 바로 아래의 else if 문 추가
+         * */
         if(result == 0.0){  msg.what = CAT ; }
         else if(result == 1.0){ msg.what = DOG ;}
         else if(result == 2.0){ msg.what = FOX ;}
